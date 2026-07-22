@@ -205,3 +205,73 @@
 **Decision:** Add shipping city and state to the Orders source and carry them into `orders_clean`; defer a separate customer-address table until customer-location analysis requires it.
 **Check:** Confirm shipping fields are stable within each raw `order_id`, then report their null counts before using them in the Streamlit regional-sales views.
 **Post:** Yes — this distinction between customer geography and transaction geography is directly relevant to dashboard metric design.
+
+## 2026-07-12 · Retail Business · #eda
+**Finding:** Early EDA shows RFM segments unstable due to orders with null `customer_id`.
+**Mechanism:** Anonymous or guest checkouts are excluded from `customers_clean`, shifting segment sizes and revenue shares.
+**Decision:** Run RFM both on `customers_clean` and on `orders_clean` (fallback grouping for anonymous purchasers).
+**Check:** Compare segment counts and revenue share with/without null-customer orders; quantify differences.
+**Post:** Hold — useful background for an RFM caveats post.
+
+## 2026-07-13 · Retail Business · #rfm
+**Finding:** RFM segmentation is skewed by guest-checkout patterns and duplicate emails.
+**Mechanism:** Orders without `customer_id` sometimes include repeat emails or minimal identity fields.
+**Decision:** Introduce `anonymous_purchaser_id` (email + name fingerprint + ip_hash) to attribute repeat guest purchases conservatively.
+**Check:** Measure how many previously anonymous orders are attributed and the resulting change in customer counts.
+**Post:** Maybe — practical guidance for handling anonymous buyers.
+
+## 2026-07-14 · Retail Business · #metrics
+**Finding:** Daily-sales and trend metrics shift depending on which exported file is selected.
+**Mechanism:** `latest_file()` can pick partial or intermediate uploads, producing inconsistent daily totals.
+**Decision:** Use a `LATEST_COMPLETE_EXPORT` marker or run analyses against a frozen snapshot for published metrics.
+**Check:** Compare seven-day totals from `latest` versus `frozen_snapshot`; require <=1% variance before using `latest` for reporting.
+**Post:** Yes — short post about reproducible metrics vs convenience.
+
+## 2026-07-15 · Retail Business · #missing-data
+**Finding:** A tiny subset of fulfillment rows lack an `order_id` in the raw export.
+**Mechanism:** Cancelled or partial records sometimes omit the parent reference in nested exports.
+**Decision:** Exclude fulfillment rows with null `order_id` from `fulfillments_clean` and log examples for audit.
+**Check:** Assert `fulfillments_clean.order_id.notnull().all()` and record the dropped-count provenance.
+**Post:** No — operational note.
+
+## 2026-07-16 · Retail Business · #streamlit
+**Finding:** Streamlit views became slow when joining inventory and variant lookups on the fly.
+**Mechanism:** Repeated in-memory joins and on-demand lookups inflate UI latency for typical queries.
+**Decision:** Precompute and cache a compact `variant_lookup` table (id, sku, product, key attrs) for the app.
+**Check:** Measure view-load time before/after; target median <2s for common filters.
+**Post:** No — implementation improvement.
+
+## 2026-07-17 · Retail Business · #notebooks
+**Finding:** Long notebook runs consumed excessive memory due to many retained intermediate DataFrames.
+**Mechanism:** Keeping `*_raw`, `*_work`, and multiple ephemeral frames duplicates memory usage.
+**Decision:** Persist key intermediate tables to parquet and delete ephemeral frames after validation steps.
+**Check:** Expect a >=30% reduction in peak memory during a full top-to-bottom run.
+**Post:** No — internal best practice.
+
+## 2026-07-18 · Retail Business · #cleaning
+**Finding:** Variant option parsing missed SKUs that used commas inside option values.
+**Mechanism:** Naive `split(',')` on option strings broke quoted or multi-token option values.
+**Decision:** Update the parser to respect quoted tokens and map multi-option strings to separate attributes carefully.
+**Check:** Validate option-coverage increases to 100% for previously affected SKUs.
+**Post:** Yes — short technical tip on robust option parsing.
+
+## 2026-07-19 · Retail Business · #performance
+**Finding:** The PK/FK validation suite runtime grew linearly and began to slow CI iterations.
+**Mechanism:** Python join-based checks iterate large in-memory joins without using vectorized or SQL-optimized approaches.
+**Decision:** Move heavy validations into DuckDB SQL and batch checks by table to exploit vectorized execution.
+**Check:** Expect >=50% reduction in validation runtime on current data samples.
+**Post:** Maybe — performance-focused writeup.
+
+## 2026-07-20 · Retail Business · #docs
+**Finding:** New contributors were confused by ad-hoc table naming and notebook conventions.
+**Mechanism:** Inconsistent use of `_raw`, `_work`, `_clean` across notebooks and helper functions.
+**Decision:** Add a `CONTRIBUTING.md` and a top-of-notebook section documenting naming rules and table contracts.
+**Check:** New contributors should pass a simple naming/lint checklist on first run.
+**Post:** No — internal contributor docs.
+
+## 2026-07-21 · Retail Business · #publication
+**Finding:** Several `Post: Yes` items line up into a coherent three-part LinkedIn series.
+**Mechanism:** Core themes: proving grain & keys, specifying cleaning contracts, and reproducible snapshots for metrics.
+**Decision:** Draft three posts in `linkedin-post-drafts.md` with concrete examples and schedule internal review.
+**Check:** Produce three draft posts and get internal review sign-off before scheduling.
+**Post:** Yes — plan to publish as a short series.
