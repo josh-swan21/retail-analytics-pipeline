@@ -32,7 +32,9 @@
 - `fulfillments_clean`: one row per fulfillment
 - `products_clean`: one row per product
 - `variants_clean`: one row per sellable variant
-- `inventory_items_clean`, `inventory_levels_clean`, and `locations_clean`: planned and partially validated as the inventory side of the model is completed
+- `inventory_items_clean`: one row per inventory item
+- `inventory_levels_clean`: one row per inventory item and Shopify location
+- `locations_clean`: still to be materialized as a standalone location dimension; the current inventory export contains three validated locations
 
 ## Initial grain checks
 - The first pass confirmed that the raw exports do not all share the same grain.
@@ -77,11 +79,34 @@
 - Duplicate rule: remove true duplicates and keep one logical row per entity
 - Validation: each key must be non-null and unique in its clean table
 
+### Inventory items
+- Raw grain: inventory-item attributes repeated across location-level quantity rows
+- Clean grain: one row per `inventory_item_id`
+- Key: `inventory_item_id`
+- Duplicate rule: retain only item-level attributes after proving they are stable across locations
+- Validation: the key must be non-null and unique, retained attributes must not conflict across locations, and `variant_id` must resolve uniquely to `variants_clean`
+
+### Inventory levels
+- Raw and clean grain: one row per inventory item and Shopify location in the current snapshot
+- Key: (`inventory_item_id`, `location_id`)
+- Duplicate rule: do not deduplicate repeated inventory-item IDs; they represent valid location assignments
+- Validation: both key columns must be populated, the composite key must be unique, and every inventory item must resolve to `inventory_items_clean`
+- Limitation: this is current state, not historical inventory; add `snapshot_at` to the key when dated snapshots are retained
+
+### Locations
+- Source grain: location attributes embedded in inventory-level rows
+- Intended clean grain: one row per `location_id`
+- Key: `location_id`
+- Current evidence: three location IDs map one-to-one to three inventory-level source components
+- Remaining work: materialize and validate `locations_clean`
+
 ## Relationships and join rules
 - Customer-to-order relationship: optional on some orders, but populated customer IDs must resolve to a customer in `customers_clean`.
 - Order-to-order-lines and order-to-fulfillments: these should be validated as strict parent-child relationships.
 - Product-to-variant relationships should be checked before using variant-level metrics in analysis.
-- Inventory relationships should be validated only after the inventory item, inventory level, and location tables are fully defined.
+- Variant-to-inventory-item is validated as one-to-one in both directions.
+- Inventory-level-to-inventory-item is a validated many-to-one relationship with zero orphan rows.
+- Location relationships are proven in the source but still need a standalone `locations_clean` table.
 
 ## Key decisions made so far
 - Use the order’s shipping geography for sales-location analysis rather than a customer’s saved address.
@@ -89,29 +114,32 @@
 - Treat guest and anonymous purchases carefully; the analysis should include a fallback view for anonymous purchasers instead of assuming all orders belong to a clean customer record.
 - Use frozen snapshots for published metrics and avoid relying on the latest synced file when reproducibility matters.
 - Keep raw and clean tables separate to preserve a reliable audit trail.
+- Use `(inventory_item_id, location_id)` as the business key for current inventory levels; preserve `inventory_level_id` for source traceability.
+- Run semantic assertions after structural checks: event timestamps must be ordered, quantities must be internally consistent, monetary fields must reconcile within $0.01, and line-level currencies must agree.
 
 ## Open questions and remaining work
-- Which columns in the raw orders export are truly order-level versus line-item or product-level?
-- How should product, variant, and SKU-level detail be represented in the final analytical model?
-- Which inventory fields are point-in-time and which are historical?
+- How should selected variant options be normalized if option-level analysis requires more than the current variant table?
+- What snapshot cadence and retention policy should be used to turn current inventory state into history?
 - How should customer-address history be handled if location analysis expands beyond shipping geography?
-- Should the final analysis treat some tables as facts and others as dimensions, or is a hybrid model more appropriate?
+- Should fulfillments remain a minimal order bridge or be expanded with event-level attributes for operational analysis?
+- Which clean-table persistence format and frozen snapshot should downstream analysis notebooks use?
 
-## Current status — 2026-07-21
-- The project has moved beyond initial cleaning and into analysis.
-- RFM outputs are now being interpreted with caution because guest-checkout orders and duplicate-email patterns can distort customer-level segmentation.
-- A conservative anonymous-purchaser attribution approach is being used to avoid overstating repeat-customer behavior.
-- Trend and daily-sales metrics are sensitive to source drift, so frozen snapshots should be used for any reporting output.
-- Variant option parsing has been improved to handle quoted and multi-token option values more reliably.
-- The Streamlit experience has been improved through a cached `variant_lookup` table.
-- Notebook memory use has been reduced by persisting key intermediate tables and dropping earlier temporary frames after validation steps.
-- The validation workflow has been optimized for faster repeated runs.
-- Documentation and publication notes have been consolidated so the next analysis work is easier to follow.
+## Current status — 2026-07-30
+- The latest executed cleaning run uses five July 30 exports: N customer rows, N order rows, N product rows, N variant rows, and N inventory rows.
+- The clean model currently contains N customers, N orders, N order lines, N products, N variants, N inventory items, and N inventory levels, plus a fulfillment child table.
+- All 15 displayed Shopify ID normalization checks pass with zero failed extractions.
+- Customer, order, order-line, product, variant, inventory-item, and inventory-level keys pass their implemented uniqueness and null checks.
+- Populated order-line product and variant references resolve; historical lines with null catalog references are retained and counted separately.
+- Variant and inventory-item references pass as a one-to-one relationship in both directions, and inventory levels have zero orphaned inventory-item references.
+- The inventory export is now modeled at item and item-location grains. The three locations are mapped and validated, but `locations_clean` has not yet been materialized.
+- Order timestamps parse successfully and have no updated-before-created or cancelled-before-created violations.
+- Order-line quantities, totals, discounts, unit-price extensions, and USD currency fields pass the current semantic assertions.
+- Results still come from `latest_file()` and therefore remain a moving development snapshot until a dated snapshot is frozen for reporting.
 
 ## Immediate next steps
-- Finish the margin, sales-trend, and product/vendor analysis notebooks on top of the validated clean tables.
-- Continue validating customer, product, variant, and inventory relationships before treating any result as final.
-- Keep using frozen snapshots for any metric intended for publication.
-- Revisit the remaining grain and model questions once the analysis notebooks are complete.
-
+- Materialize `locations_clean` and validate inventory-level foreign keys to it.
+- Persist the validated clean tables from one explicitly frozen source snapshot for downstream reproducibility.
+- Complete order-header monetary and currency contracts, then add equivalent type and domain checks to the remaining clean tables.
+- Run the margin, sales-trend, RFM, and product/vendor notebooks against the same frozen clean outputs; distinguish exploratory notebooks from completed analysis.
+- Reconcile guest-checkout handling before treating customer-level RFM results as final.
 

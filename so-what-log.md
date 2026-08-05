@@ -275,3 +275,31 @@
 **Decision:** Draft three posts in `linkedin-post-drafts.md` with concrete examples and schedule internal review.
 **Check:** Produce three draft posts and get internal review sign-off before scheduling.
 **Post:** Yes — plan to publish as a short series.
+
+## 2026-07-30 · Retail Business · #inventory-grain
+**Finding:** Repeated inventory-item IDs represent valid location assignments, not duplicate inventory items.
+**Mechanism:** The current snapshot contains N item-location rows for N inventory items across 3 locations; N items appear at more than one location, while retained item attributes remain stable across those rows.
+**Decision:** Split the export into `inventory_items_clean` at 1 row per `inventory_item_id` and `inventory_levels_clean` at 1 row per `(inventory_item_id, location_id)`.
+**Check:** The current run has N unique inventory items and N inventory-level rows, with 0 null keys, 0 duplicate item-location keys, 0 conflicting item attributes, and 0 inventory-level orphan rows.
+**Post:** Yes — a clear example of proving that repeated IDs encode a relationship before deduplicating them.
+
+## 2026-07-30 · Retail Business · #variant-inventory
+**Finding:** Shopify variants and inventory items form a one-to-one relationship in the current export.
+**Mechanism:** Both clean tables contain N rows, and each populated key resolves uniquely in both directions.
+**Decision:** Keep variants and inventory items as separate entities connected by `inventory_item_id`; do not merge their grains just because the current relationship is one-to-one.
+**Check:** Require 0 null or unmatched variant references, 0 duplicate variant assignments in inventory items, and 0 duplicate inventory-item assignments in variants. The current run passes all checks.
+**Post:** Combine — useful evidence for the broader Shopify analytical-model post.
+
+## 2026-07-30 · Retail Business · #semantic-validation
+**Finding:** Unique keys and valid foreign keys are necessary but do not prove that order facts are analytically valid.
+**Mechanism:** Timestamps, quantities, prices, discounts, totals, and currencies can violate business rules even when every row joins correctly.
+**Decision:** Add executable semantic contracts after structural PK/FK checks: timestamps must parse and follow event order; quantities must be non-negative and internally bounded; monetary components must reconcile within $0.01; currencies must be present and consistent.
+**Check:** The July 30 run has 0 timestamp conversion failures, 0 orders updated or cancelled before creation, 0 invalid quantity relationships, 0 monetary reconciliation failures, and 0 missing or inconsistent order-line currencies.
+**Post:** Yes — strong reminder that referential integrity is only one layer of data quality.
+
+## 2026-07-30 · Retail Business · #current-status
+**Finding:** The cleaning notebook now constructs and validates the core customer, order, catalog, and inventory tables from the latest exports.
+**Mechanism:** The July 30 snapshot produces N customers, N orders, N order lines, N products, N variants, N inventory items, and N inventory levels; all displayed PK/FK and semantic assertions pass.
+**Decision:** Treat the cleaning model as analysis-ready for the checks currently implemented, then finish the standalone location dimension and persist a frozen snapshot before publishing metrics.
+**Check:** Rerun `notebooks/01_clean.ipynb` top to bottom, require every assertion to pass, record the five selected source filenames, and confirm downstream notebooks use the same frozen outputs.
+**Post:** No — project-status checkpoint and handoff into analysis.
