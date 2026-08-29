@@ -126,7 +126,7 @@ SELECT
     ) AS unmatched_customer_ids
 FROM ORDERS o  
 LEFT JOIN CUSTOMERS c  
-    ON o.customer_id = o.customer_id; 
+    ON o.customer_id = c.customer_id; 
 
 SELECT 
     COUNT_IF(ol.order_id is null) as null_order_ids,
@@ -207,3 +207,106 @@ SELECT
 FROM fulfillments f   
 LEFT JOIN orders o  
     ON f.order_id = o.order_id;
+
+
+SELECT 
+    COUNT_IF(
+        quantity <= 0
+        OR unfulfilled_quantity < 0
+        OR fulfillable_quantity < 0
+        OR unfulfilled_quantity > quantity
+        OR fulfillable_quantity > unfulfilled_quantity
+    ) AS invalid_quantity_rows,
+    COUNT_IF(
+        quantity IS NULL 
+        OR unfulfilled_quantity IS NULL 
+        OR fulfillable_quantity IS NULL 
+    ) AS null_quantity_rows
+FROM order_lines;
+
+-- Verify whether a line's price, after discounts, ever exceeds its original price 
+SELECT
+    COUNT_IF(discounted_total > original_total) AS invalid_discount_rows,
+    COUNT_IF(
+        discounted_total IS NULL
+        OR original_total IS NULL
+    ) AS null_discount_amount_rows
+FROM ORDER_LINES;
+
+SELECT 
+    COUNT_IF(
+        ABS(original_total - total_discount - discounted_total) > 0.01
+    ) AS invalid_discount_calculation_rows,
+    COUNT_IF(
+        original_total IS NULL 
+        OR total_discount IS NULL 
+        OR discounted_total IS NULL
+    ) AS null_discounted_calculation_rows
+FROM ORDER_LINES;
+
+SELECT 
+    COUNT_IF(
+        ABS((unit_price * quantity) - original_total) > 0.01
+    ) AS invalid_original_total_rows,
+    COUNT_IF(
+        unit_price IS NULL
+        OR quantity IS NULL 
+        OR original_total IS NULL
+    ) AS null_unit_calculation_rows
+FROM ORDER_LINES;
+
+SELECT 
+    COUNT_IF(
+        unit_price_currency IS NULL
+        OR unit_price_currency <> 'USD'
+        OR original_total_currency IS NULL 
+        OR original_total_currency <> 'USD'
+        OR discounted_total_currency IS NULL 
+        OR discounted_total_currency <> 'USD'
+        OR total_discount_currency IS NULL 
+        OR total_discount_currency <> 'USD'
+    ) AS invalid_order_line_currency_rows
+FROM ORDER_LINES;
+
+SELECT
+    COUNT_IF(
+        currency_code IS NULL 
+        OR currency_code <> 'USD'
+        OR presentment_currency IS NULL 
+        OR presentment_currency <> 'USD'
+        OR order_subtotal_currency IS NULL 
+        OR order_subtotal_currency <> 'USD'
+        OR order_shipping_total_currency IS NULL
+        OR order_shipping_total_currency <> 'USD'
+        OR order_total_tax_currency IS NULL 
+        OR order_total_tax_currency <> 'USD'
+        OR order_discounts_total_currency IS NULL
+        OR order_discounts_total_currency <> 'USD'
+        OR order_total_currency IS NULL 
+        OR order_total_currency <> 'USD'
+    ) AS invalid_order_currency_rows
+FROM ORDERS;
+
+-- Run this diagnostic test if query above returns 1 or more rows 
+-- Use query results to investigate further 
+SELECT 
+    COUNT_IF(currency_code IS NULL OR currency_code <> 'USD') AS invalid_currency_code,
+    COUNT_IF(order_subtotal_currency IS NULL OR order_subtotal_currency <> 'USD') AS invalid_subtotal_currency,
+    COUNT_IF(order_shipping_total_currency IS NULL OR order_shipping_total_currency <> 'USD') AS invalid_shipping_total_currency,
+    COUNT_IF(order_total_tax_currency IS NULL OR order_total_tax_currency <> 'USD') AS invalid_total_tax_currency,
+    COUNT_IF(order_discounts_total_currency IS NULL OR order_discounts_total_currency <> 'USD') AS invalid_discounts_total_currency,
+    COUNT_IF(order_total_currency IS NULL OR order_total_currency <> 'USD') AS invalid_order_total_currency
+FROM ORDERS;
+
+-- presentment_currency has 4 valid options; validate values fall within these options 
+SELECT
+    COUNT_IF(
+        presentment_currency IS NULL OR presentment_currency NOT IN ('USD', 'CAD', 'EUR', 'GBP')
+    ) AS invalid_presentment_currency_rows 
+FROM ORDERS;
+SELECT 
+    presentment_currency, 
+    COUNT(*) AS order_count
+FROM ORDERS
+GROUP BY presentment_currency
+ORDER BY order_count DESC;

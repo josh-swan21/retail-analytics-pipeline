@@ -17,7 +17,19 @@ USE SCHEMA CORE;
 --
 -- REMOVE @RETAIL_DB.CORE.CLEAN_CSV_STAGE
 -- PATTERN = '.*[.]csv';
+
+-- THEN: 
+-- 1. OPEN Snowflake Object Explorer inside VSC
+-- 2. Navigate to RETAIL_DB > CORE > Stages > CLEAN_CSV_STAGE
+-- 3. Select the stage's UPLOAD button
+-- 4. Select all eight CSV's from local data/clean folder
+-- 5. Run statement below to verifiy all files are in place
+
+-- LIST @RETAIL_DB.CORE.CLEAN_CSV_STAGE;
+
+-- 6. Re-run full script
 -- ============================================================
+
 
 CREATE OR REPLACE FILE FORMAT CLEAN_CSV_FORMAT
     TYPE = CSV

@@ -143,3 +143,46 @@
 - Run the margin, sales-trend, RFM, and product/vendor notebooks against the same frozen clean outputs; distinguish exploratory notebooks from completed analysis.
 - Reconcile guest-checkout handling before treating customer-level RFM results as final.
 
+## Work completed since the 2026-07-30 update
+
+### Python warehouse preparation
+- Validated and normalized clean-table data types before export, including UTC timestamps, nullable identifiers, integer measures, booleans, strings, and monetary values.
+- Added conversion-failure assertions before replacing populated source timestamps.
+- Added checks preventing identifier cleanup from producing literal `nan`/`<NA>` strings or trailing `.0` values.
+- Renamed clean-table columns to the snake_case contract used by Snowflake.
+- Added the 8-table `data/clean` CSV export loop.
+- Removed unused EDA, RFM, margin, sales-trend, and product/vendor notebooks so incomplete analysis is not represented as current project work.
+
+### Snowflake model and loading
+- Created `RETAIL_DB.CORE` tables for the 8 clean CSV outputs: customers, products, orders, variants, inventory items, inventory levels, order lines, and fulfillments.
+- Added Snowflake primary- and foreign-key declarations matching the Python clean-table model.
+- Added a manual internal-stage workflow that confirms all 8 files before replacing the existing snapshot.
+- Added `COPY INTO` preflight validation with `VALIDATION_MODE = 'RETURN_ALL_ERRORS'` for every file.
+- Added abort-on-error loads and post-load row-count queries for every destination table.
+- The load remains a manual full-snapshot replacement; it is not yet atomic, and execution results are not stored in the repository.
+
+### Snowflake structural and referential validation
+- Added row-count queries for all 8 tables.
+- Added null and duplicate primary-key checks, including the `(inventory_item_id, location_id)` inventory-level key.
+- Added null-versus-unmatched foreign-key checks for:
+  - orders → customers
+  - order lines → orders, products, and variants
+  - variants → products and inventory items
+  - inventory items → variants
+  - inventory levels → inventory items
+  - fulfillments → orders
+- These queries are implemented in `sql/core/03_validate_tables.sql`. No saved Snowflake result set exists in the repository, so passing warehouse counts are not asserted here.
+
+### Snowflake semantic and currency validation
+- Added order-line quantity checks: ordered quantity must be positive; remaining quantities must be non-negative and satisfy `fulfillable_quantity <= unfulfilled_quantity <= quantity`.
+- Added checks that discounted totals do not exceed original totals.
+- Added $0.01-tolerance reconciliations for `original_total - total_discount = discounted_total` and `unit_price * quantity = original_total`.
+- Added a current-shop currency contract requiring all 4 order-line currency fields to be populated and equal to `USD`.
+- The saved Python notebook already records 0 missing or inconsistent order-line currency rows and only `USD`; the matching Snowflake result is not stored.
+
+## Updated next steps
+- Run the complete Snowflake validation script after the current 8-file load and preserve an auditable result artifact.
+- Add order-header and customer/inventory currency checks where monetary values are compared.
+- Add Snowflake timestamp and event-order checks to mirror the notebook coverage.
+- Freeze a dated clean snapshot and record expected source and destination counts before downstream reporting.
+- Materialize `locations_clean` only if location-level analysis requires a standalone dimension, then add its foreign-key validation.
