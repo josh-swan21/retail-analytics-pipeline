@@ -272,8 +272,6 @@ SELECT
     COUNT_IF(
         currency_code IS NULL 
         OR currency_code <> 'USD'
-        OR presentment_currency IS NULL 
-        OR presentment_currency <> 'USD'
         OR order_subtotal_currency IS NULL 
         OR order_subtotal_currency <> 'USD'
         OR order_shipping_total_currency IS NULL
@@ -287,26 +285,20 @@ SELECT
     ) AS invalid_order_currency_rows
 FROM ORDERS;
 
--- Run this diagnostic test if query above returns 1 or more rows 
--- Use query results to investigate further 
-SELECT 
-    COUNT_IF(currency_code IS NULL OR currency_code <> 'USD') AS invalid_currency_code,
-    COUNT_IF(order_subtotal_currency IS NULL OR order_subtotal_currency <> 'USD') AS invalid_subtotal_currency,
-    COUNT_IF(order_shipping_total_currency IS NULL OR order_shipping_total_currency <> 'USD') AS invalid_shipping_total_currency,
-    COUNT_IF(order_total_tax_currency IS NULL OR order_total_tax_currency <> 'USD') AS invalid_total_tax_currency,
-    COUNT_IF(order_discounts_total_currency IS NULL OR order_discounts_total_currency <> 'USD') AS invalid_discounts_total_currency,
-    COUNT_IF(order_total_currency IS NULL OR order_total_currency <> 'USD') AS invalid_order_total_currency
-FROM ORDERS;
-
 -- presentment_currency has 4 valid options; validate values fall within these options 
 SELECT
     COUNT_IF(
         presentment_currency IS NULL OR presentment_currency NOT IN ('USD', 'CAD', 'EUR', 'GBP')
     ) AS invalid_presentment_currency_rows 
 FROM ORDERS;
+
+-- processed_at may precede created_at and is intentionally not sequence-tested.
 SELECT 
-    presentment_currency, 
-    COUNT(*) AS order_count
-FROM ORDERS
-GROUP BY presentment_currency
-ORDER BY order_count DESC;
+    COUNT_IF(
+        created_at IS NULL
+        OR updated_at IS NULL
+        OR processed_at IS NULL
+    ) AS missing_required_timestamp_rows,
+    COUNT_IF(updated_at < created_at) AS invalid_updated_created_rows,
+    COUNT_IF(cancelled_at IS NOT NULL AND cancelled_at < created_at) AS cancellation_before_created_rows
+FROM ORDERS;
