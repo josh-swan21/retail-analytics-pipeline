@@ -50,6 +50,8 @@ CREATE TABLE IF NOT EXISTS ORDERS (
     order_subtotal_currency VARCHAR,
     order_shipping_total NUMBER(12, 2), 
     order_shipping_total_currency VARCHAR,
+    order_total_duties NUMBER(12, 2),
+    order_total_duties_currency VARCHAR,
     order_total_tax NUMBER(12, 2),
     order_total_tax_currency VARCHAR,
     order_discounts_total NUMBER(12, 2),
@@ -57,6 +59,8 @@ CREATE TABLE IF NOT EXISTS ORDERS (
     order_total NUMBER(12, 2),
     order_total_currency VARCHAR,
     is_test BOOLEAN,
+    order_shipping_discount NUMBER(12, 2),
+    order_shipping_discount_currency VARCHAR,
     
     PRIMARY KEY (order_id),
 
