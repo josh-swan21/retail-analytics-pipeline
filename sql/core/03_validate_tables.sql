@@ -158,7 +158,7 @@ FROM order_lines ol
 LEFT JOIN variants v 
     ON v.variant_id = ol.variant_id;
 
-SELECT 
+SELECT
     COUNT_IF(v.product_id is null) AS null_product_ids,
     COUNT_IF(
         v.product_id is not null 
@@ -302,3 +302,141 @@ SELECT
     COUNT_IF(updated_at < created_at) AS invalid_updated_created_rows,
     COUNT_IF(cancelled_at IS NOT NULL AND cancelled_at < created_at) AS cancellation_before_created_rows
 FROM ORDERS;
+
+SELECT
+    COUNT_IF(
+        quantity_available IS NULL
+        OR quantity_on_hand IS NULL
+        OR quantity_committed IS NULL
+        OR quantity_incoming IS NULL
+        OR quantity_reserved IS NULL
+        OR safety_stock_quantity IS NULL
+    ) missing_inventory_quantity_rows,
+    COUNT_IF(
+        quantity_committed < 0
+        OR quantity_incoming < 0
+        OR quantity_reserved < 0
+        OR safety_stock_quantity < 0
+    ) invalid_negative_inventory_rows,
+    COUNT_IF(
+        quantity_available_updated_at IS NULL
+    ) missing_inventory_timestamp_rows,
+    COUNT_IF(
+        quantity_on_hand < 0
+    ) negative_on_hand_rows,
+    COUNT_IF(
+        quantity_available < 0
+    ) negative_available_rows
+FROM INVENTORY_LEVELS;
+
+SELECT
+    COUNT_IF(
+        quantity_available + quantity_committed + quantity_reserved + safety_stock_quantity > quantity_on_hand
+    ) AS known_inventory_exceeds_on_hand_rows
+FROM INVENTORY_LEVELS;
+
+SELECT 
+    COUNT_IF(
+        order_subtotal IS NULL
+        OR order_shipping_total IS NULL
+        OR order_total_tax IS NULL
+        OR order_discounts_total IS NULL 
+        OR order_total IS NULL
+    ) missing_order_amount_rows,
+    COUNT_IF(
+        order_subtotal < 0
+        OR order_shipping_total < 0
+        OR order_total_tax < 0
+        OR order_discounts_total < 0
+        OR order_total < 0
+    ) negative_order_amount_rows
+FROM ORDERS;
+
+-- Validate the new amounts: zero is valid; NULL and negative are not.
+SELECT
+    COUNT_IF(
+        order_shipping_discount IS NULL
+        OR order_total_duties IS NULL
+    ) AS missing_new_order_amount_rows,
+
+    COUNT_IF(
+        order_shipping_discount < 0
+        OR order_total_duties < 0
+    ) AS negative_new_order_amount_rows,
+
+    COUNT_IF(
+        order_shipping_discount > order_shipping_total
+    ) AS shipping_discount_exceeds_shipping_rows
+FROM ORDERS;
+
+
+-- Both new currency fields should contain USD. 
+SELECT
+    COUNT_IF(
+        order_shipping_discount_currency IS NULL
+        OR order_shipping_discount_currency <> 'USD'
+        OR order_total_duties_currency IS NULL
+        OR order_total_duties_currency <> 'USD'
+    ) AS invalid_new_order_currency_rows
+FROM ORDERS;
+
+
+-- Reconcile the order total.
+-- Subtotal already reflects merchandise discounts, so do not
+-- subtract order_discounts_total again.
+-- Exactly $0.01 is within tolerance; anything greater is flagged.
+SELECT
+    COUNT_IF(
+        order_subtotal IS NULL
+        OR order_shipping_total IS NULL
+        OR order_shipping_discount IS NULL
+        OR order_total_tax IS NULL
+        OR order_total_duties IS NULL
+        OR order_total IS NULL
+    ) AS missing_reconciliation_amount_rows,
+
+    COUNT_IF(
+        ABS(
+            order_total - (
+                order_subtotal
+                + order_shipping_total
+                - order_shipping_discount
+                + order_total_tax
+                + order_total_duties
+            )
+        ) > 0.01
+    ) AS invalid_reconciled_order_total_rows
+FROM ORDERS;
+
+
+-- Inspect any remaining discrepancies or missing amounts.
+-- Expected result: no rows.
+WITH order_reconciliation AS (
+    SELECT
+        order_id,
+        order_number,
+        order_subtotal,
+        order_shipping_total,
+        order_shipping_discount,
+        order_total_tax,
+        order_total_duties,
+        order_total,
+        order_subtotal
+            + order_shipping_total
+            - order_shipping_discount
+            + order_total_tax
+            + order_total_duties AS calculated_order_total,
+        shipping_country,
+        financial_status,
+        cancelled_at
+    FROM ORDERS
+)
+SELECT
+    *,
+    order_total - calculated_order_total AS unexplained_difference
+FROM order_reconciliation
+WHERE order_total IS NULL
+    OR calculated_order_total IS NULL
+    OR ABS(order_total - calculated_order_total) > 0.01
+ORDER BY ABS(order_total - calculated_order_total) DESC, order_id;
+

@@ -1,7 +1,6 @@
 USE ROLE SYSADMIN;
 USE WAREHOUSE COMPUTE_WH;
 USE DATABASE RETAIL_DB;
-
 USE SCHEMA CORE;
 
 
@@ -229,6 +228,7 @@ FROM @RETAIL_DB.CORE.CLEAN_CSV_STAGE
 FILES = ('fulfillments.csv')
 ON_ERROR = 'ABORT_STATEMENT';
 
--- Validate row count post-load
+-- Validate row count post-load against clean.ipynb order count
 SELECT COUNT(*)
-FROM RETAIL_DB.CORE.FULFILLMENTS;
+FROM RETAIL_DB.CORE.ORDERS;
+
