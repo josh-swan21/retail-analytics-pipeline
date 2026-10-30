@@ -3,4 +3,5 @@ __pycache__/
 *.pyc
 .env
 data/raw/
-.DS_Storedata/
+.DS_Store
+data/
