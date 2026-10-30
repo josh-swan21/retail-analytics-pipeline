@@ -370,7 +370,7 @@ SELECT
 FROM ORDERS;
 
 
--- Both new currency fields should contain USD.
+-- Both new currency fields should contain USD. 
 SELECT
     COUNT_IF(
         order_shipping_discount_currency IS NULL
@@ -410,7 +410,7 @@ FROM ORDERS;
 
 
 -- Inspect any remaining discrepancies or missing amounts.
--- Expected result: no rows.
+-- Expected result: no rows. 
 WITH order_reconciliation AS (
     SELECT
         order_id,
@@ -439,3 +439,4 @@ WHERE order_total IS NULL
     OR calculated_order_total IS NULL
     OR ABS(order_total - calculated_order_total) > 0.01
 ORDER BY ABS(order_total - calculated_order_total) DESC, order_id;
+
