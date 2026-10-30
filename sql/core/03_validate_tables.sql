@@ -1,5 +1,5 @@
 USE ROLE SYSADMIN;
-USE WAREHOUSE COMPUTE_WH;
+USE WAREHOUSE COMPUTE_WH; 
 USE DATABASE RETAIL_DB;
 USE SCHEMA CORE;
 
@@ -118,98 +118,98 @@ FROM (
 ) AS duplicate_keys;
 
 -- Referential integrity checks: child foreign keys to parent primary keys
-SELECT
+SELECT 
     COUNT_IF(o.customer_id is null) AS null_customer_ids,
     COUNT_IF(
         o.customer_id is not null
         AND c.customer_id is null
     ) AS unmatched_customer_ids
-FROM ORDERS o
-LEFT JOIN CUSTOMERS c
-    ON o.customer_id = c.customer_id;
+FROM ORDERS o  
+LEFT JOIN CUSTOMERS c  
+    ON o.customer_id = c.customer_id; 
 
-SELECT
+SELECT 
     COUNT_IF(ol.order_id is null) as null_order_ids,
     COUNT_IF(
         ol.order_id is not null
         AND o.order_id is null
     ) AS unmatched_order_ids
-FROM order_lines ol
-LEFT JOIN orders o
+FROM order_lines ol 
+LEFT JOIN orders o 
     ON ol.order_id = o.order_id;
 
-SELECT
+SELECT 
     COUNT_IF(ol.product_id is null) AS null_product_ids,
     COUNT_IF(
         ol.product_id is not null
         AND p.product_id is null
     ) AS unmatched_product_ids
-FROM order_lines ol
+FROM order_lines ol  
 LEFT JOIN products p
     ON p.product_id = ol.product_id;
 
-SELECT
+SELECT 
     COUNT_IF(ol.variant_id is null) AS null_variant_ids,
     COUNT_IF(
-        ol.variant_id is not null
-        AND v.variant_id is null
+        ol.variant_id is not null 
+        AND v.variant_id is null 
     ) AS unmatched_variant_ids
-FROM order_lines ol
-LEFT JOIN variants v
+FROM order_lines ol 
+LEFT JOIN variants v 
     ON v.variant_id = ol.variant_id;
 
 SELECT
     COUNT_IF(v.product_id is null) AS null_product_ids,
     COUNT_IF(
-        v.product_id is not null
-        AND p.product_id is null
+        v.product_id is not null 
+        AND p.product_id is null 
     ) AS unmatched_product_ids
-FROM variants v
-LEFT JOIN products p
+FROM variants v 
+LEFT JOIN products p 
     ON v.product_id = p.product_id;
 
-SELECT
+SELECT 
     COUNT_IF(v.inventory_item_id is null) AS null_inventory_item_ids,
     COUNT_IF(
-        v.inventory_item_id is not null
+        v.inventory_item_id is not null 
         AND ii.inventory_item_id is null
     ) AS unmatched_inventory_item_ids
 FROM variants v
-LEFT JOIN inventory_items ii
+LEFT JOIN inventory_items ii  
     ON v.inventory_item_id = ii.inventory_item_id;
 
-SELECT
+SELECT 
     COUNT_IF(ii.variant_id is null) AS null_variant_ids,
     COUNT_IF(
-        ii.variant_id is not null
+        ii.variant_id is not null 
         AND v.variant_id is null
     ) AS unmatched_variant_ids
-FROM inventory_items ii
-LEFT JOIN variants v
+FROM inventory_items ii  
+LEFT JOIN variants v 
     ON ii.variant_id = v.variant_id;
 
-SELECT
+SELECT 
     COUNT_IF(il.inventory_item_id is null) AS null_inventory_item_ids,
     COUNT_IF(
-        il.inventory_item_id is not null
+        il.inventory_item_id is not null 
         AND ii.inventory_item_id is null
     ) AS unmatched_inventory_item_ids
-FROM inventory_levels il
+FROM inventory_levels il  
 LEFT JOIN inventory_items ii
     ON il.inventory_item_id = ii.inventory_item_id;
 
-SELECT
+SELECT 
     COUNT_IF(f.order_id is null) AS null_order_ids,
     COUNT_IF(
-        f.order_id is not null
+        f.order_id is not null 
         AND o.order_id is null
     ) AS unmatched_order_ids
-FROM fulfillments f
-LEFT JOIN orders o
+FROM fulfillments f   
+LEFT JOIN orders o  
     ON f.order_id = o.order_id;
 
 
-SELECT
+SELECT 
     COUNT_IF(
         quantity <= 0
         OR unfulfilled_quantity < 0
@@ -218,13 +218,13 @@ SELECT
         OR fulfillable_quantity > unfulfilled_quantity
     ) AS invalid_quantity_rows,
     COUNT_IF(
-        quantity IS NULL
-        OR unfulfilled_quantity IS NULL
-        OR fulfillable_quantity IS NULL
+        quantity IS NULL 
+        OR unfulfilled_quantity IS NULL 
+        OR fulfillable_quantity IS NULL 
     ) AS null_quantity_rows
 FROM order_lines;
 
--- Verify whether a line's price, after discounts, ever exceeds its original price
+-- Verify whether a line's price, after discounts, ever exceeds its original price 
 SELECT
     COUNT_IF(discounted_total > original_total) AS invalid_discount_rows,
     COUNT_IF(
@@ -233,67 +233,67 @@ SELECT
     ) AS null_discount_amount_rows
 FROM ORDER_LINES;
 
-SELECT
+SELECT 
     COUNT_IF(
         ABS(original_total - total_discount - discounted_total) > 0.01
     ) AS invalid_discount_calculation_rows,
     COUNT_IF(
-        original_total IS NULL
-        OR total_discount IS NULL
+        original_total IS NULL 
+        OR total_discount IS NULL 
         OR discounted_total IS NULL
     ) AS null_discounted_calculation_rows
 FROM ORDER_LINES;
 
-SELECT
+SELECT 
     COUNT_IF(
         ABS((unit_price * quantity) - original_total) > 0.01
     ) AS invalid_original_total_rows,
     COUNT_IF(
         unit_price IS NULL
-        OR quantity IS NULL
+        OR quantity IS NULL 
         OR original_total IS NULL
     ) AS null_unit_calculation_rows
 FROM ORDER_LINES;
 
-SELECT
+SELECT 
     COUNT_IF(
         unit_price_currency IS NULL
         OR unit_price_currency <> 'USD'
-        OR original_total_currency IS NULL
+        OR original_total_currency IS NULL 
         OR original_total_currency <> 'USD'
-        OR discounted_total_currency IS NULL
+        OR discounted_total_currency IS NULL 
         OR discounted_total_currency <> 'USD'
-        OR total_discount_currency IS NULL
+        OR total_discount_currency IS NULL 
         OR total_discount_currency <> 'USD'
     ) AS invalid_order_line_currency_rows
 FROM ORDER_LINES;
 
 SELECT
     COUNT_IF(
-        currency_code IS NULL
+        currency_code IS NULL 
         OR currency_code <> 'USD'
-        OR order_subtotal_currency IS NULL
+        OR order_subtotal_currency IS NULL 
         OR order_subtotal_currency <> 'USD'
         OR order_shipping_total_currency IS NULL
         OR order_shipping_total_currency <> 'USD'
-        OR order_total_tax_currency IS NULL
+        OR order_total_tax_currency IS NULL 
         OR order_total_tax_currency <> 'USD'
         OR order_discounts_total_currency IS NULL
         OR order_discounts_total_currency <> 'USD'
-        OR order_total_currency IS NULL
+        OR order_total_currency IS NULL 
         OR order_total_currency <> 'USD'
     ) AS invalid_order_currency_rows
 FROM ORDERS;
 
--- presentment_currency has 4 valid options; validate values fall within these options
+-- presentment_currency has 4 valid options; validate values fall within these options 
 SELECT
     COUNT_IF(
         presentment_currency IS NULL OR presentment_currency NOT IN ('USD', 'CAD', 'EUR', 'GBP')
-    ) AS invalid_presentment_currency_rows
+    ) AS invalid_presentment_currency_rows 
 FROM ORDERS;
 
 -- processed_at may precede created_at and is intentionally not sequence-tested.
-SELECT
+SELECT 
     COUNT_IF(
         created_at IS NULL
         OR updated_at IS NULL
@@ -335,12 +335,12 @@ SELECT
     ) AS known_inventory_exceeds_on_hand_rows
 FROM INVENTORY_LEVELS;
 
-SELECT
+SELECT 
     COUNT_IF(
         order_subtotal IS NULL
         OR order_shipping_total IS NULL
         OR order_total_tax IS NULL
-        OR order_discounts_total IS NULL
+        OR order_discounts_total IS NULL 
         OR order_total IS NULL
     ) missing_order_amount_rows,
     COUNT_IF(
@@ -370,7 +370,7 @@ SELECT
 FROM ORDERS;
 
 
--- Both new currency fields should contain USD.
+-- Both new currency fields should contain USD. 
 SELECT
     COUNT_IF(
         order_shipping_discount_currency IS NULL
