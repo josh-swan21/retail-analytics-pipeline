@@ -1,0 +1,5 @@
+{
+  "batch_date": "YYYY-MM-DD",
+  "mode": "full_snapshot",
+  "complete": false
+}
