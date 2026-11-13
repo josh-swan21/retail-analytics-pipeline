@@ -1,0 +1,40 @@
+version: 2
+models:
+  - name: stg_orders
+    description: Explicit order columns from the current published CORE snapshot.
+    columns:
+      - name: order_id
+        data_tests: [not_null, unique]
+  - name: stg_order_lines
+    description: Order-line quantities at one row per order_line_id.
+    columns:
+      - name: order_line_id
+        data_tests: [not_null, unique]
+  - name: int_orders_with_lines
+    description: One non-test order with line quantities aggregated before joining order money.
+    columns:
+      - name: order_id
+        data_tests: [not_null, unique]
+      - name: sales_date
+        data_tests: [not_null]
+      - name: units_ordered
+        data_tests: [not_null]
+      - name: order_line_count
+        data_tests: [not_null]
+  - name: mart_daily_sales
+    description: Chicago order-creation-day metrics in USD from the latest snapshot. Includes cancelled and unpaid orders in overall metrics. Not refund-adjusted net revenue.
+    columns:
+      - name: sales_date
+        description: America/Chicago date of order creation; dates with no orders are absent.
+        data_tests: [not_null, unique]
+      - name: order_count
+        data_tests: [not_null]
+      - name: total_order_value
+        description: Sum of order totals across all non-test orders, including cancelled or unpaid orders.
+        data_tests: [not_null]
+      - name: merchandise_subtotal
+        description: Source subtotal already reflects merchandise discounts; do not subtract recorded discounts again.
+      - name: completed_order_value
+        description: Full order totals for currently PAID or PARTIALLY_REFUNDED non-cancelled orders. Refund amounts are not deducted.
+      - name: average_completed_order_value
+        description: Completed order value divided by completed order count; NULL if no qualifying orders.
