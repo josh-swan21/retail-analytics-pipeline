@@ -10,3 +10,5 @@ batch.json
 dbt/target/
 dbt/logs/
 dbt/dbt_packages/
+
+docs/retail_analytics_code_study_guide.docx/
