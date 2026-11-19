@@ -5,32 +5,29 @@ USE SCHEMA CORE;
 
 
 -- ============================================================
--- MANUAL PRE-UPLOAD STEP
+-- MANUAL STEPS BEFORE EACH LOAD
 --
--- Before running this file:
--- 1. Run 01_clean.ipynb and export the updated CSVs.
--- 2. Run the REMOVE command separately.
--- 3. Upload all eight updated CSVs.
+-- 1. Run 01_clean.ipynb and export all eight CSVs to data/clean.
+-- 2. Run the REMOVE statement below separately to clear old CSVs.
+-- 3. In VS Code, open Snowflake Object Explorer and go to
+--    RETAIL_DB > CORE > Stages > CLEAN_CSV_STAGE.
+-- 4. Use Upload to add all eight updated CSVs from data/clean.
+-- 5. Run the LIST statement separately and confirm all eight
+--    expected files are present before running the load section.
 --
--- Do not uncomment this command inside the loading script:
+-- If setting up the stage for the first time, run the setup
+-- section before uploading.
 --
 -- REMOVE @RETAIL_DB.CORE.CLEAN_CSV_STAGE
--- PATTERN = '.*[.]csv';
-
--- THEN: 
--- 1. OPEN Snowflake Object Explorer inside VSC
--- 2. Navigate to RETAIL_DB > CORE > Stages > CLEAN_CSV_STAGE
--- 3. Select the stage's UPLOAD button
--- 4. Select all eight CSV's from local data/clean folder
--- 5. Run statement below to verifiy all files are in place
-
--- LIST @RETAIL_DB.CORE.CLEAN_CSV_STAGE;
-
--- 6. Re-run full script
+--     PATTERN = '.*[.]csv';
 -- ============================================================
 
 
-CREATE OR REPLACE FILE FORMAT CLEAN_CSV_FORMAT
+-- ============================================================
+-- STAGE SETUP
+-- ============================================================
+
+CREATE OR REPLACE FILE FORMAT RETAIL_DB.CORE.CLEAN_CSV_FORMAT
     TYPE = CSV
     SKIP_HEADER = 1
     FIELD_OPTIONALLY_ENCLOSED_BY = '"'
@@ -42,193 +39,99 @@ CREATE STAGE IF NOT EXISTS RETAIL_DB.CORE.CLEAN_CSV_STAGE
         FORMAT_NAME = RETAIL_DB.CORE.CLEAN_CSV_FORMAT
     );
 
-SHOW FILE FORMATS IN SCHEMA RETAIL_DB.CORE;
-SHOW STAGES IN SCHEMA RETAIL_DB.CORE;
-
-
 ALTER STAGE RETAIL_DB.CORE.CLEAN_CSV_STAGE
     SET FILE_FORMAT = (
         FORMAT_NAME = RETAIL_DB.CORE.CLEAN_CSV_FORMAT
     );
 
+SHOW FILE FORMATS IN SCHEMA RETAIL_DB.CORE;
+SHOW STAGES IN SCHEMA RETAIL_DB.CORE;
+
 LIST @RETAIL_DB.CORE.CLEAN_CSV_STAGE;
 
--- Clear the existing snapshot only after confirming
--- that all updated source files are staged.
+-- ============================================================
+-- CREATE EMPTY TABLES FOR THE NEW SNAPSHOT
+-- ============================================================
 
-TRUNCATE TABLE ORDER_LINES;
-TRUNCATE TABLE FULFILLMENTS;
-TRUNCATE TABLE INVENTORY_LEVELS;
-TRUNCATE TABLE INVENTORY_ITEMS;
-TRUNCATE TABLE VARIANTS;
-TRUNCATE TABLE ORDERS;
-TRUNCATE TABLE PRODUCTS;
-TRUNCATE TABLE CUSTOMERS;
+CREATE SCHEMA IF NOT EXISTS RETAIL_DB.INCOMING;
+
+CREATE OR REPLACE TABLE RETAIL_DB.INCOMING.CUSTOMERS
+    LIKE RETAIL_DB.CORE.CUSTOMERS;
+
+CREATE OR REPLACE TABLE RETAIL_DB.INCOMING.PRODUCTS
+    LIKE RETAIL_DB.CORE.PRODUCTS;
+
+CREATE OR REPLACE TABLE RETAIL_DB.INCOMING.ORDERS
+    LIKE RETAIL_DB.CORE.ORDERS;
+
+CREATE OR REPLACE TABLE RETAIL_DB.INCOMING.VARIANTS
+    LIKE RETAIL_DB.CORE.VARIANTS;
+
+CREATE OR REPLACE TABLE RETAIL_DB.INCOMING.INVENTORY_ITEMS
+    LIKE RETAIL_DB.CORE.INVENTORY_ITEMS;
+
+CREATE OR REPLACE TABLE RETAIL_DB.INCOMING.INVENTORY_LEVELS
+    LIKE RETAIL_DB.CORE.INVENTORY_LEVELS;
+
+CREATE OR REPLACE TABLE RETAIL_DB.INCOMING.ORDER_LINES
+    LIKE RETAIL_DB.CORE.ORDER_LINES;
+
+CREATE OR REPLACE TABLE RETAIL_DB.INCOMING.FULFILLMENTS
+    LIKE RETAIL_DB.CORE.FULFILLMENTS;
 
 
--- CUSTOMERS: Confirm destination is empty after truncation
-SELECT COUNT(*)
-FROM RETAIL_DB.CORE.CUSTOMERS;
+-- ============================================================
+-- LOAD THE EIGHT CSVs INTO INCOMING
+-- ============================================================
 
--- CUSTOMERS: Validate the CSV against the table without inserting rows
-COPY INTO RETAIL_DB.CORE.CUSTOMERS
-FROM @RETAIL_DB.CORE.CLEAN_CSV_STAGE
-FILES = ('customers.csv')
-VALIDATION_MODE = 'RETURN_ALL_ERRORS';
-
--- CUSTOMERS: Load staged file
-COPY INTO RETAIL_DB.CORE.CUSTOMERS
+COPY INTO RETAIL_DB.INCOMING.CUSTOMERS
 FROM @RETAIL_DB.CORE.CLEAN_CSV_STAGE
 FILES = ('customers.csv')
 ON_ERROR = 'ABORT_STATEMENT';
 
--- CUSTOMERS: Validate row count post-load 
-SELECT COUNT(*)
-FROM RETAIL_DB.CORE.CUSTOMERS;
-
--- PRODUCTS: Confirm destination is empty after truncation
-SELECT COUNT(*)
-FROM retail_db.core.products;
-
--- Validate the CSV against the table without inserting rows
-COPY INTO RETAIL_DB.CORE.PRODUCTS
-FROM @RETAIL_DB.CORE.CLEAN_CSV_STAGE
-FILES = ('products.csv')
-VALIDATION_MODE = 'RETURN_ALL_ERRORS';
-
--- PRODUCTS: Load staged file
-COPY INTO RETAIL_DB.CORE.PRODUCTS
+COPY INTO RETAIL_DB.INCOMING.PRODUCTS
 FROM @RETAIL_DB.CORE.CLEAN_CSV_STAGE
 FILES = ('products.csv')
 ON_ERROR = 'ABORT_STATEMENT';
 
--- Validate row count post-load
-SELECT COUNT(*)
-FROM RETAIL_DB.CORE.PRODUCTS;
-
--- ========== ORDERS ==========
--- Confirm destination is empty after truncation
-SELECT COUNT(*)
-FROM retail_db.core.orders;
-
--- Validate the CSV against the table without inserting rows
-COPY INTO RETAIL_DB.CORE.ORDERS
-FROM @RETAIL_DB.CORE.CLEAN_CSV_STAGE
-FILES = ('orders.csv')
-VALIDATION_MODE = 'RETURN_ALL_ERRORS';
-
--- Load staged file
-COPY INTO RETAIL_DB.CORE.ORDERS
+COPY INTO RETAIL_DB.INCOMING.ORDERS
 FROM @RETAIL_DB.CORE.CLEAN_CSV_STAGE
 FILES = ('orders.csv')
 ON_ERROR = 'ABORT_STATEMENT';
 
--- Validate row count post-load
-SELECT COUNT(*)
-FROM RETAIL_DB.CORE.ORDERS;
-
--- ========== VARIANTS ==========
--- Confirm destination is empty after truncation
-SELECT COUNT(*)
-FROM retail_db.core.variants;
-
--- Validate the CSV against the table without inserting rows
-COPY INTO RETAIL_DB.CORE.VARIANTS
-FROM @RETAIL_DB.CORE.CLEAN_CSV_STAGE
-FILES = ('variants.csv')
-VALIDATION_MODE = 'RETURN_ALL_ERRORS';
-
--- Load staged file
-COPY INTO RETAIL_DB.CORE.VARIANTS
+COPY INTO RETAIL_DB.INCOMING.VARIANTS
 FROM @RETAIL_DB.CORE.CLEAN_CSV_STAGE
 FILES = ('variants.csv')
 ON_ERROR = 'ABORT_STATEMENT';
 
--- Validate row count post-load
-SELECT COUNT(*)
-FROM RETAIL_DB.CORE.VARIANTS;
-
--- ========== INVENTORY ITEMS ==========
--- Confirm destination is empty after truncation
-SELECT COUNT(*)
-FROM retail_db.core.inventory_items;
-
--- Validate the CSV against the table without inserting rows
-COPY INTO RETAIL_DB.CORE.INVENTORY_ITEMS
-FROM @RETAIL_DB.CORE.CLEAN_CSV_STAGE
-FILES = ('inventory_items.csv')
-VALIDATION_MODE = 'RETURN_ALL_ERRORS';
-
--- Load staged file
-COPY INTO RETAIL_DB.CORE.INVENTORY_ITEMS
+COPY INTO RETAIL_DB.INCOMING.INVENTORY_ITEMS
 FROM @RETAIL_DB.CORE.CLEAN_CSV_STAGE
 FILES = ('inventory_items.csv')
 ON_ERROR = 'ABORT_STATEMENT';
 
--- Validate row count post-load
-SELECT COUNT(*)
-FROM RETAIL_DB.CORE.INVENTORY_ITEMS;
-
--- ========== INVENTORY LEVELS ==========
--- Confirm destination is empty after truncation
-SELECT COUNT(*)
-FROM retail_db.core.inventory_levels;
-
--- Validate the CSV against the table without inserting rows
-COPY INTO RETAIL_DB.CORE.INVENTORY_LEVELS
-FROM @RETAIL_DB.CORE.CLEAN_CSV_STAGE
-FILES = ('inventory_levels.csv')
-VALIDATION_MODE = 'RETURN_ALL_ERRORS';
-
--- Load staged file
-COPY INTO RETAIL_DB.CORE.INVENTORY_LEVELS
+COPY INTO RETAIL_DB.INCOMING.INVENTORY_LEVELS
 FROM @RETAIL_DB.CORE.CLEAN_CSV_STAGE
 FILES = ('inventory_levels.csv')
 ON_ERROR = 'ABORT_STATEMENT';
 
--- Validate row count post-load
-SELECT COUNT(*)
-FROM RETAIL_DB.CORE.INVENTORY_LEVELS;
-
--- ========== ORDER LINES ==========
--- Confirm destination is empty after truncation
-SELECT COUNT(*)
-FROM retail_db.core.order_lines;
-
--- Validate the CSV against the table without inserting rows
-COPY INTO RETAIL_DB.CORE.ORDER_LINES
-FROM @RETAIL_DB.CORE.CLEAN_CSV_STAGE
-FILES = ('order_lines.csv')
-VALIDATION_MODE = 'RETURN_ALL_ERRORS';
-
--- Load staged file
-COPY INTO RETAIL_DB.CORE.ORDER_LINES
+COPY INTO RETAIL_DB.INCOMING.ORDER_LINES
 FROM @RETAIL_DB.CORE.CLEAN_CSV_STAGE
 FILES = ('order_lines.csv')
 ON_ERROR = 'ABORT_STATEMENT';
 
--- Validate row count post-load
-SELECT COUNT(*)
-FROM RETAIL_DB.CORE.ORDER_LINES;
-
--- ========== FULFILLMENTS ==========
--- Confirm destination is empty after truncation
-SELECT COUNT(*)
-FROM retail_db.core.fulfillments;
-
--- Validate the CSV against the table without inserting rows
-COPY INTO RETAIL_DB.CORE.FULFILLMENTS
-FROM @RETAIL_DB.CORE.CLEAN_CSV_STAGE
-FILES = ('fulfillments.csv')
-VALIDATION_MODE = 'RETURN_ALL_ERRORS';
-
--- Load staged file
-COPY INTO RETAIL_DB.CORE.FULFILLMENTS
+COPY INTO RETAIL_DB.INCOMING.FULFILLMENTS
 FROM @RETAIL_DB.CORE.CLEAN_CSV_STAGE
 FILES = ('fulfillments.csv')
 ON_ERROR = 'ABORT_STATEMENT';
 
--- Validate row count post-load against clean.ipynb order count
-SELECT COUNT(*)
-FROM RETAIL_DB.CORE.ORDERS;
-
+SELECT
+    table_name,
+    status,
+    row_parsed AS rows_parsed,
+    row_count AS rows_loaded,
+    first_error_message,
+    last_load_time
+FROM RETAIL_DB.INFORMATION_SCHEMA.LOAD_HISTORY
+WHERE schema_name = 'INCOMING'
+  AND last_load_time >= DATEADD(hour, -1, CURRENT_TIMESTAMP())
+ORDER BY last_load_time DESC;

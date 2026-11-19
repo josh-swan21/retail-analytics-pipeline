@@ -5,3 +5,10 @@ __pycache__/
 data/raw/
 .DS_Store
 data/
+batch.json
+
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
+
+docs/retail_analytics_code_study_guide.docx/

@@ -1,7 +1,7 @@
 USE ROLE SYSADMIN;
 USE WAREHOUSE COMPUTE_WH; 
 USE DATABASE RETAIL_DB;
-USE SCHEMA CORE;
+USE SCHEMA INCOMING;
 
 SELECT 'CUSTOMERS' AS table_name, COUNT(*) AS actual_rows
 FROM CUSTOMERS
@@ -285,10 +285,12 @@ SELECT
     ) AS invalid_order_currency_rows
 FROM ORDERS;
 
--- presentment_currency has 4 valid options; validate values fall within these options 
+-- Observed presentment currencies, verified against Shopify CurrencyCode.
+-- KRW occurs in the November 10 source; shop-denominated amounts remain USD.
+-- New currencies require review rather than silently expanding this contract.
 SELECT
     COUNT_IF(
-        presentment_currency IS NULL OR presentment_currency NOT IN ('USD', 'CAD', 'EUR', 'GBP')
+        presentment_currency IS NULL OR presentment_currency NOT IN ('USD', 'CAD', 'EUR', 'GBP', 'KRW')
     ) AS invalid_presentment_currency_rows 
 FROM ORDERS;
 
