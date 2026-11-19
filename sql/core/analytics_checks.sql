@@ -238,3 +238,9 @@ SELECT
     completed_order_value / NULLIF(completed_order_count, 0) AS average_completed_order_value
 FROM daily_sales
 ORDER BY sales_date;
+
+
+SELECT *
+FROM RETAIL_DB.ANALYTICS_DEV.MART_DAILY_SALES
+ORDER BY sales_date DESC
+LIMIT 20;
