@@ -1,0 +1,29 @@
+# Layer 3: checks that run automatically before every commit.
+# Install once per clone:  pre-commit install
+# Run on everything:       pre-commit run --all-files
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks            # known secret formats: keys, tokens, passwords
+
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.9.2
+    hooks:
+      - id: nbstripout          # remove notebook outputs before they are committed
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=500"]   # stop accidental data dumps
+      - id: detect-private-key
+      - id: check-merge-conflict
+
+  - repo: local
+    hooks:
+      - id: check-sensitive
+        name: check for emails, phone numbers and private terms
+        entry: python3 scripts/check_sensitive.py
+        language: system
+        types: [text]

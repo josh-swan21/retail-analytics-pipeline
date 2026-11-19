@@ -12,3 +12,16 @@ dbt/logs/
 dbt/dbt_packages/
 
 docs/retail_analytics_code_study_guide.docx/
+
+# Layer 1: block sensitive file types anywhere in the repo.
+# Data exports (add a synthetic sample on purpose with `git add -f`)
+*.csv
+*.xlsx
+*.xls
+*.parquet
+# Keys and certificates
+*.pem
+*.p8
+*.key
+# Local-only list of private terms used by the pre-commit check
+.sensitive-patterns
