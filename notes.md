@@ -125,8 +125,8 @@
 - Which clean-table persistence format and frozen snapshot should downstream analysis notebooks use?
 
 ## Current status — 2026-07-30
-- The latest executed cleaning run uses five July 30 exports: N customer rows, N order rows, N product rows, N variant rows, and N inventory rows.
-- The clean model currently contains N customers, N orders, N order lines, N products, N variants, N inventory items, and N inventory levels, plus a fulfillment child table.
+- The latest executed cleaning run uses five July 30 exports. The raw Orders export has about two rows per order because line items are flattened into it, and about a third of raw customer rows are duplicates of another customer ID.
+- The clean model has each table at its own grain: about 1.9 order lines per order, one inventory item per variant, and about 1.4 inventory-level rows per inventory item, plus a fulfillment child table.
 - All 15 displayed Shopify ID normalization checks pass with zero failed extractions.
 - Customer, order, order-line, product, variant, inventory-item, and inventory-level keys pass their implemented uniqueness and null checks.
 - Populated order-line product and variant references resolve; historical lines with null catalog references are retained and counted separately.

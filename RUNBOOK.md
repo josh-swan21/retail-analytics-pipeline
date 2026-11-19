@@ -69,7 +69,7 @@ check. Incremental batches are rejected, because overwrite would delete unchange
 The inventory key mismatch was confirmed and corrected in the notebook's early
 check: `(inventory_item_id, location_id)` is now consistent with its final model,
 the cleaning module, and SQL. The saved upload notebook shows a successful PUT
-and N-row test load on November 10 (Chicago time); no saved DNS error remains
+and full orders test load on November 10 (Chicago time); no saved DNS error remains
 in the workspace. This is historical evidence, not a current connectivity check.
 Its missing-script repository locator was also repaired.
 
@@ -79,8 +79,7 @@ Local verification:
 venv/bin/python -m unittest discover -s tests -v
 ```
 
-Two November 10 local runs produced identical CSV hashes: N customers, N
-products, N orders, N variants, N inventory items, N inventory levels,
-N order lines, and N fulfillments. No live load was run during implementation.
+Two November 10 local runs produced identical CSV hashes for all eight tables.
+No live load was run during implementation.
 Future work: verify a complete live batch, then add dbt models/tests, orchestration,
 and CI/CD around these contracts.

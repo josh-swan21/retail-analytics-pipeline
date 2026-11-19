@@ -96,7 +96,7 @@
 
 ## 2026-06-27 · Shopify Retail Analytics · #pipeline
 **Finding:** The cleaning notebook now loads five current Shopify sources and preserves raw copies, but the repeated-ID patterns still need semantic validation before clean tables are finalized.
-**Mechanism:** Today's run loaded N customer rows/N IDs, N order rows/N IDs, N product rows/N IDs, N inventory rows/N IDs, and N variant rows/N IDs.
+**Mechanism:** Today's run loaded more rows than unique IDs in most exports: about 1.5 rows per customer ID, 2.0 per order ID, 1.4 per inventory item and 1.4 per variant, while products were exactly one row per ID.
 **Decision:** Do not begin EDA or RFM until all 5 clean-table contracts pass their primary-key and relationship checks.
 **Check:** Finish variant and inventory ID normalization, inspect what differs inside repeated-ID groups, and run the complete PK/FK validation suite.
 **Post:** No — project-status checkpoint rather than a transferable insight.
@@ -110,14 +110,14 @@
 
 ## 2026-06-29 · Shopify Retail Analytics · #order-lines
 **Finding:** `order_line_id` is fully populated but is not unique in the raw orders export.
-**Mechanism:** The current snapshot has N rows, N orders, and N distinct order lines, leaving N repeated line IDs whose expansion mechanism is not yet confirmed.
+**Mechanism:** The current snapshot has about two rows per order, and about 5% of rows repeat an order line ID through an expansion mechanism that is not yet confirmed.
 **Decision:** Inspect at least 10 repeated `order_line_id` groups before choosing a deduplication rule or declaring the clean order-line grain.
 **Check:** Compare every column within repeated groups, identify which fields vary, and verify whether each line still maps to exactly 1 order, product, and variant.
 **Post:** Hold — potentially strong, but only after the repeated-line expansion mechanism is identified.
 
 ## 2026-06-30 · Shopify Retail Analytics · #order-line-grain
 **Finding:** Repeated `order_line_id` rows preserve the retained order-line attributes but vary in nested child fields.
-**Mechanism:** The raw Orders export flattens line items alongside fulfillments, returns, and shipping lines. `Fulfillments: ID` varied in N repeated-line groups, `Returns: ID` in 98, and `Shipping lines: ID` in 1.
+**Mechanism:** The raw Orders export flattens line items alongside fulfillments, returns, and shipping lines. `Fulfillments: ID` varied in the large majority of repeated-line groups, `Returns: ID` in 98, and `Shipping lines: ID` in 1.
 **Decision:** Build `order_lines_clean` at exactly 1 row per `order_line_id`, exclude all 3 child-grain fields, and model fulfillment relationships separately.
 **Check:** Derive the stability test from every retained order-line column, then require each clean `order_line_id` to be non-null and unique.
 **Post:** Yes — this completes the story of why duplicate-looking rows must be explained at the source grain before they are removed.
@@ -131,7 +131,7 @@
 
 ## 2026-07-02 · Shopify Retail Analytics · #source-drift
 **Finding:** The latest Shopify export changed the working counts even though the cleaning logic stayed the same.
-**Mechanism:** `latest_file()` pulled the newest synced files; the current Orders snapshot has N rows, N orders, and N order lines.
+**Mechanism:** `latest_file()` pulled the newest synced files; the current Orders snapshot still has about two rows per order and about 1.9 order lines per order.
 **Decision:** Treat development runs as moving snapshots and keep dated source filenames visible in the notebook output.
 **Check:** Compare raw row counts, distinct ID counts, and selected source filenames before interpreting any downstream metric movement.
 **Post:** Combine — supports the reproducibility post about why “latest” and “publishable” are different modes.
@@ -140,12 +140,12 @@
 **Finding:** The ID QA loop now covers 15 raw-to-normalized mappings, including fulfillment IDs.
 **Mechanism:** Orders, customers, products, variants, and inventory each provide entity-specific GIDs, and fulfillment IDs add another child entity nested in Orders.
 **Decision:** Keep fulfillment ID normalization inside the shared validation table instead of checking it manually.
-**Check:** Require all 15 mappings to show `failed = 0`; the current run passes every mapping, including N non-null fulfillment IDs.
+**Check:** Require all 15 mappings to show `failed = 0`; the current run passes every mapping, including every non-null fulfillment ID.
 **Post:** Combine — useful proof for a broader post on auditable key normalization.
 
 ## 2026-07-04 · Shopify Retail Analytics · #inventory-levels
 **Finding:** The Inventory Level composite key passes on the current snapshot.
-**Mechanism:** `inventory_item_id + inventory_level_id` identifies N inventory-level rows with no null-key rows and no duplicate-key rows.
+**Mechanism:** `inventory_item_id + inventory_level_id` identifies every inventory-level row, with no null-key rows and no duplicate-key rows.
 **Decision:** Keep this as the current-state inventory-level primary key until a dated inventory history is introduced.
 **Check:** Display the composite-PK check table and assert both `null_key_rows == 0` and `duplicate_key_rows == 0`.
 **Post:** Hold — good technical evidence, but it overlaps with the July 1 inventory-key story.
@@ -154,14 +154,14 @@
 **Finding:** Fulfillments belong in their own child table rather than inside order lines.
 **Mechanism:** The Orders export repeats fulfillment IDs across flattened order rows, but the retained fulfillment grain is one `fulfillment_id` associated with one `order_id`.
 **Decision:** Build `fulfillments_clean` from only `fulfillment_id` and `order_id`, dropping null fulfillment rows and duplicate pairs.
-**Check:** The current `fulfillments_clean` has N rows, 0 null fulfillment IDs, 0 duplicate fulfillment IDs, and 0 null order IDs.
+**Check:** The current `fulfillments_clean` has 0 null fulfillment IDs, 0 duplicate fulfillment IDs, and 0 null order IDs.
 **Post:** Yes — a practical example of separating nested operational events from sales-line facts.
 
 ## 2026-07-06 · Shopify Retail Analytics · #orders-clean
 **Finding:** Order headers can be separated from the expanded Orders export once order-level fields are selected deliberately.
 **Mechanism:** Raw order rows repeat because of order lines and child records, while the clean header table should contain exactly one row per `order_id`.
 **Decision:** Build `orders_clean` from approved order-header columns and deduplicate after excluding line, fulfillment, return, and shipping-grain fields.
-**Check:** The current `orders_clean` has N orders, 0 null order IDs, and 0 duplicate order IDs.
+**Check:** The current `orders_clean` has 0 null order IDs and 0 duplicate order IDs.
 **Post:** Combine — pair with the order-line duplicate story as the “split the grain before summing” lesson.
 
 ## 2026-07-07 · Shopify Retail Analytics · #relationships
@@ -196,7 +196,7 @@
 **Finding:** The clean customer table now satisfies its intended grain of one row per customer.
 **Mechanism:** Selecting customer-level fields removed the address expansion from the clean table while retaining the normalized Shopify customer key.
 **Decision:** Use `customers_clean` as the customer dimension at exactly 1 row per `customer_id`; do not manufacture an “unknown customer” record for orders whose customer ID is null.
-**Check:** The current table has N customers, 0 null customer IDs, and 0 duplicate customer IDs. Of the clean orders, 212 have no customer ID and 0 have an unmatched non-null customer ID.
+**Check:** The current table has 0 null customer IDs and 0 duplicate customer IDs. Of the clean orders, under 1% have no customer ID and 0 have an unmatched non-null customer ID.
 **Post:** Yes — a useful example of why a null foreign key and a broken foreign key are different data-quality conditions.
 
 ## 2026-07-11 · Shopify Retail Analytics · #sales-geography
@@ -208,14 +208,14 @@
 
 ## 2026-07-30 · Shopify Retail Analytics · #inventory-grain
 **Finding:** Repeated inventory-item IDs represent valid location assignments, not duplicate inventory items.
-**Mechanism:** The current snapshot contains N item-location rows for N inventory items across 3 locations; N items appear at more than one location, while retained item attributes remain stable across those rows.
+**Mechanism:** The current snapshot contains about 1.4 item-location rows per inventory item across 3 locations; about 21% of items appear at more than one location, while retained item attributes remain stable across those rows.
 **Decision:** Split the export into `inventory_items_clean` at 1 row per `inventory_item_id` and `inventory_levels_clean` at 1 row per `(inventory_item_id, location_id)`.
-**Check:** The current run has N unique inventory items and N inventory-level rows, with 0 null keys, 0 duplicate item-location keys, 0 conflicting item attributes, and 0 inventory-level orphan rows.
+**Check:** The current run has 0 null keys, 0 duplicate item-location keys, 0 conflicting item attributes, and 0 inventory-level orphan rows.
 **Post:** Yes — a clear example of proving that repeated IDs encode a relationship before deduplicating them.
 
 ## 2026-07-30 · Shopify Retail Analytics · #variant-inventory
 **Finding:** Shopify variants and inventory items form a one-to-one relationship in the current export.
-**Mechanism:** Both clean tables contain N rows, and each populated key resolves uniquely in both directions.
+**Mechanism:** Both clean tables have the same row count, and each populated key resolves uniquely in both directions.
 **Decision:** Keep variants and inventory items as separate entities connected by `inventory_item_id`; do not merge their grains just because the current relationship is one-to-one.
 **Check:** Require 0 null or unmatched variant references, 0 duplicate variant assignments in inventory items, and 0 duplicate inventory-item assignments in variants. The current run passes all checks.
 **Post:** Combine — useful evidence for the broader Shopify analytical-model post.
@@ -229,7 +229,7 @@
 
 ## 2026-07-30 · Shopify Retail Analytics · #current-status
 **Finding:** The cleaning notebook now constructs and validates the core customer, order, catalog, and inventory tables from the latest exports.
-**Mechanism:** The July 30 snapshot produces N customers, N orders, N order lines, N products, N variants, N inventory items, and N inventory levels; all displayed PK/FK and semantic assertions pass.
+**Mechanism:** The July 30 snapshot produces all eight clean tables; all displayed PK/FK and semantic assertions pass.
 **Decision:** Treat the cleaning model as analysis-ready for the checks currently implemented, then finish the standalone location dimension and persist a frozen snapshot before publishing metrics.
 **Check:** Rerun `notebooks/01_clean.ipynb` top to bottom, require every assertion to pass, record the five selected source filenames, and confirm downstream notebooks use the same frozen outputs.
 **Post:** No — project-status checkpoint and handoff into analysis.
