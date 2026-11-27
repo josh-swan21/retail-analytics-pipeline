@@ -2,7 +2,7 @@
 
 A batch pipeline that turns raw Shopify exports from a small e-commerce business into a validated, reproducible Snowflake data model.
 
-> **Status: work in progress.** The Python batch loader is complete and tested locally, and the first dbt mart (daily sales) is built with tests. Next up: the first full live load and more marts. See [Roadmap](#status-and-roadmap).
+> **Status: work in progress.** The Python batch loader is complete and tested, live batches have been published to Snowflake CORE, and the first dbt mart (daily sales) is built with tests. Next up: more marts, and hardening runs across machines. See [Roadmap](#status-and-roadmap).
 
 ## Why this exists
 
@@ -61,7 +61,22 @@ python -m retail_batch --batch-date YYYY-MM-DD --manifest batch.json         # l
 python -m retail_batch --batch-date YYYY-MM-DD --manifest batch.json --live  # upload, validate, publish
 ```
 
-The business's real data is not included in this repository. Full operating details (manifest format, file contracts, locking and rerun behavior) are in [docs/RUNBOOK.md](docs/RUNBOOK.md).
+The business's real data is not included in this repository. Full operating details (manifest format, file contracts, locking and rerun behavior) are in [RUNBOOK.md](RUNBOOK.md).
+
+To build the dbt models as well, install `requirements-dbt.txt`, which includes `requirements.txt` and adds dbt:
+
+```sh
+python -m pip install -r requirements-dbt.txt
+python dbt/run.py build
+```
+
+## Repository guardrails
+
+Credentials and private business data never enter the repo:
+
+- **Settings:** credentials and paths live in a gitignored `.env`; `.env.example` lists the required settings with placeholders. Snowflake sign-in uses key-pair authentication (a private `.p8` key file), not a password.
+- **`.gitignore`:** blocks data exports (`*.csv`, `*.xlsx`, `*.parquet`), keys and certificates, and local run artifacts anywhere in the repo.
+- **Pre-commit checks** (`.pre-commit-config.yaml`): gitleaks for secrets, notebook output stripping, a 500 KB file-size limit, private-key and merge-conflict detection, and `scripts/check_sensitive.py` for emails, phone numbers and private terms. Install once per clone with `pre-commit install`.
 
 ## Testing
 
@@ -69,7 +84,7 @@ The business's real data is not included in this repository. Full operating deta
 python -m unittest discover -s tests -v
 ```
 
-Unit tests cover the batch loader's cleaning and file contracts. In dbt, `dbt/run.py build` runs schema tests (unique and not-null keys on every model) plus two singular tests: one checks daily sales for impossible counts, and one re-aggregates order headers independently to catch dropped orders, duplicates and join fan-out.
+Eight unit tests cover the batch loader's warehouse contracts: COPY statement detection, orphan and reference rules, count and reconciliation failures, preflight errors, and rollback on a failed publish. In dbt, `dbt/run.py build` runs schema tests (unique and not-null keys on every model) plus two singular tests: one checks daily sales for impossible counts, and one re-aggregates order headers independently to catch dropped orders, duplicates and join fan-out.
 
 ## Status and roadmap
 
@@ -78,11 +93,11 @@ Unit tests cover the batch loader's cleaning and file contracts. In dbt, `dbt/ru
 - Warehouse load, validation and transactional publish scripts
 - Deterministic local runs verified by matching hashes
 - dbt layer: staging (orders, order lines), an intermediate join, and `mart_daily_sales`, with schema and reconciliation tests (see [dbt/README.md](dbt/README.md))
-
-**In progress**
-- First complete live batch into Snowflake
+- Live batches loaded, validated and published to CORE
+- Repository guardrails: gitignore rules and pre-commit secret and sensitive-data checks
 
 **Next**
 - More marts (customers and RFM, products, inventory)
-- Orchestration and cross-host locking
+- Orchestration, cross-host locking and stale-batch protection
+- A dependency lock file for reproducible installs
 - CI/CD around the existing data contracts
