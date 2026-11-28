@@ -11,7 +11,7 @@ dbt/target/
 dbt/logs/
 dbt/dbt_packages/
 
-docs/retail_analytics_code_study_guide.docx/
+docs/retail_analytics_code_study_guide.docx
 
 # Layer 1: block sensitive file types anywhere in the repo.
 # Data exports (add a synthetic sample on purpose with `git add -f`)

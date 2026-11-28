@@ -1,3 +1,5 @@
 {
-    "dbt.dbtMajorVersion": "v2"
+    "dbt.dbtMajorVersion": "v2",
+    "python.defaultInterpreterPath": "${workspaceFolder}/venv/bin/python"
+
 }
